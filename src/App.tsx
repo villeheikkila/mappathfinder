@@ -1,71 +1,10 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Rect, Circle } from "react-konva";
-
-enum Block {
-  VOID = "white",
-  OBSTACLE = "black",
-  NONE = "red",
-}
 
 enum Selection {
   STARTING_POINT = "starting-point",
   DESTINATION = "destination",
 }
-
-const stringToBlock = (block: string) => {
-  switch (block) {
-    case ".": {
-      return Block.VOID;
-    }
-    case "@": {
-      return Block.OBSTACLE;
-    }
-    default: {
-      return Block.NONE;
-    }
-  }
-};
-
-const splitDataToSections = (raw: string) => {
-  const rows = raw.split("\n");
-  const metadata = rows.slice(0, 3);
-  const data = rows.slice(4);
-  return [metadata, data];
-};
-
-const decodeMetaData = (data: string[]) => {
-  if (data.length !== 3)
-    throw new Error("Metadata array must have the length of 3");
-
-  return {
-    type: data[0].replace("type ", ""),
-    height: parseInt(data[1].replace("height ", "")),
-    width: parseInt(data[2].replace("width ", "")),
-  };
-};
-
-const decodeMapData = (data: string[]) =>
-  data.map((row) => row.split("").map(stringToBlock));
-
-const SIZE_MULTIPLIER = 3;
-
-interface Metadata {
-  type: string;
-  height: number;
-  width: number;
-}
-
-interface Map {
-  metadata: Metadata;
-  map: Block[][];
-}
-
-const decodeMap = (raw: string): Map => {
-  const [info, data] = splitDataToSections(raw);
-  const metadata = decodeMetaData(info);
-  const map = decodeMapData(data);
-  return { metadata, map };
-};
 
 type Position = [number, number];
 
@@ -94,46 +33,71 @@ const useSelectedPoints = () => {
   };
 };
 
-interface ReadMapUserInputProps {
-  setLoadedData: (data: string) => void;
+enum Block {
+  VOID = 0,
+  OBSTACLE = 1,
+  NONE = 0,
 }
 
-const ReadMapUserInput = ({ setLoadedData }: ReadMapUserInputProps) => {
-  const inputFile = useRef<any>(null);
-  let fileReader: any;
+interface Metadata {
+  type: string;
+  height: number;
+  width: number;
+}
 
-  const handleFileRead = () => setLoadedData(fileReader.result);
+export interface MapData {
+  metadata: Metadata;
+  map: Block[][];
+}
 
-  const handleFileUpload = (data: any) => {
-    fileReader = new FileReader();
-    fileReader.onloadend = handleFileRead;
-    fileReader.readAsText(data);
-  };
+export interface MapDataWire {
+  metadata: Metadata;
+  map: string;
+}
 
-  const onButtonClick = () => {
-    // `current` points to the mounted file input element
-    inputFile?.current?.click();
-  };
-
-  return (
-    <>
-      <button onClick={onButtonClick}>Upload new map</button>
-      <input
-        type="file"
-        id="file"
-        ref={inputFile}
-        style={{ display: "none" }}
-        onChange={({ target }) =>
-          target?.files && handleFileUpload(target.files[0])
-        }
-      />
-    </>
-  );
+const blockToColor = (block: Block) => {
+  switch (block) {
+    case Block.NONE:
+      return "white";
+    case Block.OBSTACLE:
+      return "black";
+    default:
+      return "white";
+  }
 };
 
-const MapView = ({ mapData }: { mapData: string }) => {
-  const { metadata, map } = useMemo(() => decodeMap(mapData), [mapData]);
+interface FileMetadata {
+  city: string;
+  version: number;
+  size: number;
+  path: string;
+}
+
+const SIZE_MULTIPLIER = 3;
+
+const MapView = ({ metadata, map }: { metadata: Metadata; map: Block[][] }) => {
   const { startingPoint, destination, setPoints } = useSelectedPoints();
+
+  const cachedMap = useMemo(
+    () => (
+      <>
+        {map.map((row, x) =>
+          row.map((block, y) => (
+            <Rect
+              key={`${x}-${y}`}
+              x={x * SIZE_MULTIPLIER}
+              y={y * SIZE_MULTIPLIER}
+              width={SIZE_MULTIPLIER}
+              height={SIZE_MULTIPLIER}
+              fill={blockToColor(block)}
+              // onClick={() => block === Block.VOID && setPoints([x, y])}
+            />
+          ))
+        )}
+      </>
+    ),
+    [map]
+  );
 
   return (
     <div>
@@ -154,21 +118,22 @@ const MapView = ({ mapData }: { mapData: string }) => {
           <p>Destination: ({`${destination[0]},${destination[1]}`})</p>
         )}
       </div>
-      <Stage width={1200} height={1200}>
+      <Stage
+        width={metadata.width * 3}
+        height={metadata.height * 3}
+        onClick={(e) => {
+          const [x, y] = [
+            e.target.attrs.x / SIZE_MULTIPLIER,
+            e.target.attrs.y / SIZE_MULTIPLIER,
+          ];
+          const isPossible = map[x][y] === 0;
+          if (isPossible) {
+            setPoints([x, y]);
+          }
+        }}
+      >
         <Layer>
-          {map.map((row, x) =>
-            row.map((block, y) => (
-              <Rect
-                key={`${x}-${y}`}
-                x={x * SIZE_MULTIPLIER}
-                y={y * SIZE_MULTIPLIER}
-                width={SIZE_MULTIPLIER}
-                height={SIZE_MULTIPLIER}
-                fill={block || "white"}
-                onClick={() => block === Block.VOID && setPoints([x, y])}
-              />
-            ))
-          )}
+          {cachedMap}
 
           {startingPoint && (
             <Circle
@@ -183,7 +148,7 @@ const MapView = ({ mapData }: { mapData: string }) => {
               x={destination[0] * SIZE_MULTIPLIER}
               y={destination[1] * SIZE_MULTIPLIER}
               radius={SIZE_MULTIPLIER}
-              fill="green"
+              fill="red"
             />
           )}
         </Layer>
@@ -191,13 +156,49 @@ const MapView = ({ mapData }: { mapData: string }) => {
     </div>
   );
 };
+
+const useMaps = () => {
+  const [currentMap, setCurrentMap] = useState<MapDataWire | null>(null);
+  const [availableMaps, setAvailableMaps] = useState<FileMetadata[] | null>(
+    null
+  );
+
+  const onMapChange = (path: string) => {
+    fetch(`http://localhost:3001${path}`)
+      .then((response) => response.json())
+      .then((data: MapDataWire) => setCurrentMap(data));
+  };
+
+  useEffect(() => {
+    fetch("http://localhost:3001/maps")
+      .then((response) => response.json())
+      .then(({ maps }: { maps: FileMetadata[] }) => setAvailableMaps(maps));
+  }, []);
+
+  return { availableMaps, onMapChange, currentMap };
+};
 const App = (): JSX.Element => {
-  const [mapData, setLoadedData] = useState<string | null>(null);
+  const { availableMaps, currentMap, onMapChange } = useMaps();
+
+  if (!availableMaps) return <></>;
 
   return (
     <>
-      <ReadMapUserInput setLoadedData={setLoadedData} />
-      {!mapData ? <p>Upload a map first</p> : <MapView mapData={mapData} />}
+      <select onChange={({ target }) => onMapChange(target.value)}>
+        {availableMaps.map((map) => (
+          <option key={map.path} value={map.path}>
+            {map.city} {map.version} {map.size}
+          </option>
+        ))}
+      </select>
+      {!currentMap ? (
+        <p>Upload a map first</p>
+      ) : (
+        <MapView
+          metadata={currentMap.metadata}
+          map={JSON.parse(currentMap.map)}
+        />
+      )}
     </>
   );
 };
