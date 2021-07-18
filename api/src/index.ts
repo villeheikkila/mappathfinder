@@ -28,6 +28,8 @@ app.get("/maps/:id/", async (req, res) => {
   const id = req.params.id;
   const data = await readMap(id);
   const { metadata, map } = decodeMap(data);
+  console.log('metadata: ', metadata);
+  console.log('map: ', console.dir(map));
   res.json({ id, metadata, map: JSON.stringify(map) });
 });
 

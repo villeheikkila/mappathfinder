@@ -18,7 +18,7 @@ export type PathfinderOptions = {
 export interface PathfinderProps {
   startingPosition: Position;
   destination: Position;
-  map: Block[][];
+  map: number[][];
 }
 
 

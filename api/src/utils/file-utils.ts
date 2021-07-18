@@ -8,7 +8,7 @@ interface FileMetadata {
   path: string;
 }
 
-const directoryPath = path.join(__dirname, "/../maps");
+const directoryPath = path.join(__dirname, "/../../maps");
 
 const decodeFileName = (file: string): FileMetadata => {
   const split = file.split("_");

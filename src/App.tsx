@@ -1,9 +1,10 @@
 import React from "react";
+import { Button } from "./components/Button";
 import { MapView } from "./components/MapView";
+import { Select } from "./components/Select";
 import { useMap } from "./hooks/useMap";
 import { usePathfinder } from "./hooks/usePathfinder";
 import { useSelectedPoints } from "./hooks/useSelectedPoints";
-import { capitalize } from "./utils";
 
 const App = (): JSX.Element => {
   const { startingPoint, destination, setPoints } = useSelectedPoints();
@@ -14,33 +15,41 @@ const App = (): JSX.Element => {
       destination,
       mapId: currentMap?.id,
     });
+
   if (!availableMaps || !availablePathFinders) return <></>;
 
   return (
     <>
-      <select onChange={({ target }) => onMapChange(target.value)}>
-        {availableMaps.map((map) => (
-          <option key={map.path} value={map.path}>
-            {map.city} {map.version}
-          </option>
-        ))}
-      </select>
-      <select onChange={({ target }) => onPathfinderChange(target.value)}>
-        {availablePathFinders.map((pathfinder) => (
-          <option key={pathfinder} value={pathfinder}>
-            {capitalize(pathfinder)}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={() => findShortestPath()}
-        disabled={!destination || !startingPoint}
-      >
-        Find shortest path
-      </button>
-      {!currentMap ? (
-        <p>Select a map</p>
-      ) : (
+      <div style={{ width: "200px" }}>
+        <label style={{ display: "flex", flexDirection: "column" }}>
+          Select the city
+          <Select
+            options={availableMaps
+              .map((map) => ({
+                value: map.path,
+                label: `${map.city} ${map.version}`,
+              }))
+              .concat({ label: "-", value: "-" })}
+            onChange={({ target }) => onMapChange(target.value)}
+            selected={currentMap?.id || "-"}
+          />
+        </label>
+        <Select
+          options={availablePathFinders.map((pathfinder) => ({
+            value: pathfinder,
+            label: pathfinder,
+          }))}
+          onChange={({ target }) => onPathfinderChange(target.value)}
+        />
+
+        <Button
+          onClick={() => findShortestPath()}
+          disabled={!destination || !startingPoint}
+        >
+          Find shortest path
+        </Button>
+      </div>
+      {currentMap && (
         <MapView
           metadata={currentMap.metadata}
           map={JSON.parse(currentMap.map)}
