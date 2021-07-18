@@ -75,9 +75,21 @@ interface FileMetadata {
 
 const SIZE_MULTIPLIER = 3;
 
-const MapView = ({ metadata, map }: { metadata: Metadata; map: Block[][] }) => {
-  const { startingPoint, destination, setPoints } = useSelectedPoints();
+interface MapViewProps {
+  metadata: Metadata;
+  map: Block[][];
+  startingPoint: Position | null;
+  destination: Position | null;
+  setPoints: (position: Position) => void;
+}
 
+const MapView = ({
+  metadata,
+  map,
+  startingPoint,
+  destination,
+  setPoints,
+}: MapViewProps) => {
   const cachedMap = useMemo(
     () => (
       <>
@@ -90,7 +102,6 @@ const MapView = ({ metadata, map }: { metadata: Metadata; map: Block[][] }) => {
               width={SIZE_MULTIPLIER}
               height={SIZE_MULTIPLIER}
               fill={blockToColor(block)}
-              // onClick={() => block === Block.VOID && setPoints([x, y])}
             />
           ))
         )}
@@ -177,26 +188,91 @@ const useMaps = () => {
 
   return { availableMaps, onMapChange, currentMap };
 };
-const App = (): JSX.Element => {
-  const { availableMaps, currentMap, onMapChange } = useMaps();
 
-  if (!availableMaps) return <></>;
+export enum Pathfinder {
+  DIJKSTRA = "dijkstra",
+}
+
+interface UsePathFinderProps {
+  startingPoint: Position | null;
+  destination: Position | null;
+}
+
+const usePathfinders = ({ startingPoint, destination }: UsePathFinderProps) => {
+  const [selectedPathfinder, setSelectedPathfinder] = useState<Pathfinder>(
+    Pathfinder.DIJKSTRA
+  );
+  const [availablePathFinders, setAvailablePathFinders] = useState<
+    Pathfinder[] | null
+  >(null);
+  const [shortestPath, setShortestPath] = useState<number[][] | null>(null)
+
+  useEffect(() => {
+    fetch("http://localhost:3001/pathfinders")
+      .then((response) => response.json())
+      .then(({ pathfinders }: { pathfinders: Pathfinder[] }) =>
+        setAvailablePathFinders(pathfinders)
+      );
+  }, []);
+
+  const onPathfinderChange = (value: string) => {
+    if (!availablePathFinders) return null;
+    const found = availablePathFinders.find(
+      (pathfinder) => pathfinder === value
+    );
+    if (!found) return null;
+    setSelectedPathfinder(found);
+  };
+
+  const findShortestPath = () => {
+    if (!destination || !startingPoint) return null
+    fetch(
+      `http://localhost:3001/pathfinders/${selectedPathfinder}/x=${startingPoint[0]}&y=${startingPoint[1]}/x=${destination[0]}&y=${destination[1]}`,
+    ).then((response) => response.json())
+    .then(data => setShortestPath(data))
+  };
+
+  return { availablePathFinders, onPathfinderChange, findShortestPath };
+};
+
+const capitalize = (string: string) =>
+  string.charAt(0).toUpperCase() + string.slice(1);
+
+const App = (): JSX.Element => {
+  const { startingPoint, destination, setPoints } = useSelectedPoints();
+  const { availableMaps, currentMap, onMapChange } = useMaps();
+  const { availablePathFinders, onPathfinderChange, findShortestPath } = usePathfinders({
+    startingPoint,
+    destination,
+  });
+  if (!availableMaps || !availablePathFinders) return <></>;
 
   return (
     <>
       <select onChange={({ target }) => onMapChange(target.value)}>
         {availableMaps.map((map) => (
           <option key={map.path} value={map.path}>
-            {map.city} {map.version} {map.size}
+            {map.city} {map.version}
           </option>
         ))}
       </select>
+      <select onChange={({ target }) => onPathfinderChange(target.value)}>
+        {availablePathFinders.map((pathfinder) => (
+          <option key={pathfinder} value={pathfinder}>
+            {capitalize(pathfinder)}
+          </option>
+        ))}
+      </select>
+      <button onClick={() => findShortestPath()} disabled={!destination || !startingPoint}>Find shortest path</button>
       {!currentMap ? (
-        <p>Upload a map first</p>
+        <p>Select a map</p>
       ) : (
         <MapView
           metadata={currentMap.metadata}
           map={JSON.parse(currentMap.map)}
+          startingPoint={startingPoint}
+          destination={destination}
+          setPoints={setPoints}
         />
       )}
     </>

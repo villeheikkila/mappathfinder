@@ -3,7 +3,7 @@ import { logger } from "@tinyhttp/logger";
 import { cors } from "@tinyhttp/cors";
 import { createFileListing, readMap } from "./file-utils";
 import { decodeMap } from "./map-utils";
-import { Pathfinders } from "./pathfinders";
+import { parsePathfinder, parsePositions, Pathfinder } from "./pathfinders";
 
 const app = new App();
 
@@ -25,7 +25,16 @@ app.get("/maps/:id/", async (req, res) => {
 });
 
 app.get("/pathfinders", async (_, res) => {
-  res.json({ pathfinders: Object.values(Pathfinders) });
+  res.json({ pathfinders: Object.values(Pathfinder) });
+});
+
+
+app.get("/pathfinders/:pathfinder/:startingPosition/:destination", async (req, res) => {
+  const pathfinder = parsePathfinder(req.params.pathfinder)
+  const startingPosition = parsePositions(req.params.startingPosition)
+  const destination = parsePositions(req.params.destination)
+
+  res.json({ pathfinder, startingPosition, destination });
 });
 
 app.listen(3001);
