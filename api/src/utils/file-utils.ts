@@ -25,10 +25,7 @@ const decodeFileName = (file: string): FileMetadata => {
 export const createFileListing = async (): Promise<FileMetadata[]> =>
   new Promise((resolve, reject) =>
     fs.readdir(directoryPath, (err, files) => {
-
-      if (err) {
-        reject();
-      }
+      if (err) reject(err);
 
       const fileList: string[] = [];
       files.forEach((file) => fileList.push(file));
