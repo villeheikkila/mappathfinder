@@ -43,6 +43,7 @@ interface Metadata {
   type: string;
   height: number;
   width: number;
+  path: string
 }
 
 export interface MapData {
@@ -51,6 +52,7 @@ export interface MapData {
 }
 
 export interface MapDataWire {
+  id: string
   metadata: Metadata;
   map: string;
 }
@@ -174,8 +176,8 @@ const useMaps = () => {
     null
   );
 
-  const onMapChange = (path: string) => {
-    fetch(`http://localhost:3001${path}`)
+  const onMapChange = (id: string) => {
+    fetch(`http://localhost:3001/maps/${id}`)
       .then((response) => response.json())
       .then((data: MapDataWire) => setCurrentMap(data));
   };
@@ -196,9 +198,10 @@ export enum Pathfinder {
 interface UsePathFinderProps {
   startingPoint: Position | null;
   destination: Position | null;
+  mapId: string | undefined
 }
 
-const usePathfinders = ({ startingPoint, destination }: UsePathFinderProps) => {
+const usePathfinders = ({ startingPoint, destination, mapId }: UsePathFinderProps) => {
   const [selectedPathfinder, setSelectedPathfinder] = useState<Pathfinder>(
     Pathfinder.DIJKSTRA
   );
@@ -225,9 +228,9 @@ const usePathfinders = ({ startingPoint, destination }: UsePathFinderProps) => {
   };
 
   const findShortestPath = () => {
-    if (!destination || !startingPoint) return null
+    if (!destination || !startingPoint || !mapId) return null
     fetch(
-      `http://localhost:3001/pathfinders/${selectedPathfinder}/x=${startingPoint[0]}&y=${startingPoint[1]}/x=${destination[0]}&y=${destination[1]}`,
+      `http://localhost:3001/pathfinders/${selectedPathfinder}/${mapId}/x=${startingPoint[0]}&y=${startingPoint[1]}/x=${destination[0]}&y=${destination[1]}`,
     ).then((response) => response.json())
     .then(data => setShortestPath(data))
   };
@@ -244,6 +247,7 @@ const App = (): JSX.Element => {
   const { availablePathFinders, onPathfinderChange, findShortestPath } = usePathfinders({
     startingPoint,
     destination,
+    mapId: currentMap?.id
   });
   if (!availableMaps || !availablePathFinders) return <></>;
 

@@ -1,8 +1,19 @@
+import { dijkstra } from "./dijkstra"
+import { Block } from "./map-utils"
+import { assertNever } from "./utils"
+
 export enum Pathfinder {
     DIJKSTRA = "dijkstra"
 }
 
 export type Position = [number, number]
+
+export type PathfinderOptions = {
+    pathfinder: Pathfinder
+    startingPosition: Position
+    destination: Position
+    map: Block[][]
+}
 
 export const parsePositions = (position: string): Position => {
     const split = position.split("&")
@@ -17,3 +28,15 @@ export const parsePathfinder = (pathfinder: string): Pathfinder => {
       default: throw new Error("selected pathfinder is not supported")
     }
   }
+
+export const pathfinder = ({pathfinder,...parameters}: PathfinderOptions) => {
+    switch(pathfinder) {
+        case Pathfinder.DIJKSTRA: {
+            return dijkstra(parameters)
+        }
+        default: {
+            assertNever(pathfinder)
+        }
+    }
+
+}

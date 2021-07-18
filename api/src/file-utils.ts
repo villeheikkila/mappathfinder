@@ -18,7 +18,7 @@ const decodeFileName = (file: string): FileMetadata => {
     city: split[0],
     version: parseInt(split[1]),
     size: parseInt(size[0]),
-    path: `/maps/${file}`,
+    path: file,
   };
 };
 

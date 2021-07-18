@@ -3,7 +3,7 @@ import { logger } from "@tinyhttp/logger";
 import { cors } from "@tinyhttp/cors";
 import { createFileListing, readMap } from "./file-utils";
 import { decodeMap } from "./map-utils";
-import { parsePathfinder, parsePositions, Pathfinder } from "./pathfinders";
+import { parsePathfinder, parsePositions, pathfinder, Pathfinder, PathfinderOptions } from "./pathfinders";
 
 const app = new App();
 
@@ -19,9 +19,10 @@ app.get("/maps", async (_, res) => {
 });
 
 app.get("/maps/:id/", async (req, res) => {
-  const data = await readMap(req.params.id);
+  const id = req.params.id
+  const data = await readMap(id);
   const { metadata, map } = decodeMap(data);
-  res.json({ metadata, map: JSON.stringify(map) });
+  res.json({ id, metadata, map: JSON.stringify(map) });
 });
 
 app.get("/pathfinders", async (_, res) => {
@@ -29,12 +30,19 @@ app.get("/pathfinders", async (_, res) => {
 });
 
 
-app.get("/pathfinders/:pathfinder/:startingPosition/:destination", async (req, res) => {
-  const pathfinder = parsePathfinder(req.params.pathfinder)
-  const startingPosition = parsePositions(req.params.startingPosition)
-  const destination = parsePositions(req.params.destination)
+app.get("/pathfinders/:pathfinder/:map/:startingPosition/:destination", async (req, res) => {
+  const data = await readMap(req.params.map);
+  const { map } = decodeMap(data);
 
-  res.json({ pathfinder, startingPosition, destination });
+  const options: PathfinderOptions = {
+    pathfinder: parsePathfinder(req.params.pathfinder),
+    startingPosition: parsePositions(req.params.startingPosition),
+    destination: parsePositions(req.params.destination),
+    map
+  }
+
+  const path = pathfinder(options) 
+  res.json({ options, path});
 });
 
 app.listen(3001);
